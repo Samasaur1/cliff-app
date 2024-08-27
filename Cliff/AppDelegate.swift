@@ -7,12 +7,32 @@
 
 import Foundation
 
-class AppDelegate: NSObject {
+class AppDelegate: NSObject, ObservableObject {
+    @Published var deviceToken: Result<String, Error>? = nil
+    @Published var connectionSuccessful: Result<(Data, URLResponse), Error>? = nil
+    
+    enum AppDelError: Error, LocalizedError {
+        case missingURL
+        
+        var errorDescription: String {
+            switch self {
+            case .missingURL:
+                "No server URL was set"
+            }
+        }
+    }
+    
     func sendDeviceTokenToServer(_ token: Data) {
         let tokenString = token.map { String(format: "%.2x", $0) }.joined()
+        Task.detached { @MainActor in
+            self.deviceToken = .success(tokenString)
+        }
         
         guard let serverURL = UserDefaults.standard.url(forKey: "server") else {
             print("Missing server base URL in UserDefaults")
+            Task.detached { @MainActor in
+                self.connectionSuccessful = .failure(AppDelError.missingURL)
+            }
             return
         }
         
@@ -28,9 +48,15 @@ class AppDelegate: NSObject {
                     print("non-200 status code on response to sending device token")
                     return
                 }
+                await MainActor.run {
+                    self.connectionSuccessful = .success((data, response))
+                }
             } catch {
                 print("Error sending device token to server")
                 print(error)
+                await MainActor.run {
+                    self.connectionSuccessful = .failure(error)
+                }
             }
         }
     }
@@ -44,6 +70,9 @@ extension AppDelegate: NSApplicationDelegate {
     }
     
     func application(_ application: NSApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {
+        Task.detached { @MainActor in
+            self.deviceToken = .failure(error)
+        }
         print("Failed to register for remote notifications")
         print(error)
     }
@@ -56,6 +85,9 @@ extension AppDelegate: UIApplicationDelegate {
     }
     
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: any Error) {
+        Task.detached { @MainActor in
+            self.deviceToken = .failure(error)
+        }
         print("Failed to register for remote notifications")
         print(error)
     }
