@@ -21,7 +21,7 @@ struct ContentView: View {
             // This URL has a zero-width joiner between the `:` and the `/` so that SwiftUI doesn't color it blue.
             // The way that you normally would prevent this behavior is with the `.tint` modifier, but the `prompt`
             // parameter must be of type `Text`
-            TextField("Server base URL", text: $serverURL, prompt: Text("http:​​//cliff.wholphin-wyvern.ts.net"))
+            TextField("Server base URL", text: $serverURL, prompt: Text("https:​​//cliff.wholphin-wyvern.ts.net"))
                 .textFieldStyle(.roundedBorder)
                 .textContentType(.URL)
                 .autocorrectionDisabled()
@@ -31,6 +31,9 @@ struct ContentView: View {
             Spacer()
                 .frame(maxHeight: 15)
             Button {
+                self.appDelegate.connectionSuccessful = nil
+                self.appDelegate.deviceToken = nil
+                self.granted = nil
                 Task {
                     // Register for notifications
                     self.granted = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound, .carPlay])
